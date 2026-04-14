@@ -5,10 +5,10 @@ import numpy as np
 from datetime import timedelta
 
 # Page Setup
-st.set_page_config(page_title="Final Super AI", layout="wide")
+st.set_page_config(page_title="Confidence AI Predictor", layout="wide")
 
-st.title("🛡️ Super-AI: Shift-Wise Winner & Loser Predictor")
-st.write("सटीक तारीख और शिफ्ट के हिसाब से विश्लेषण।")
+st.title("🛡️ Super-AI: Confidence-Based Predictor")
+st.write("प्रत्येक नंबर के साथ उसका 'Confidence %' और स्कोर देखें।")
 
 # 1. Master Patterns
 master_patterns = [0, -18, -16, -26, -32, -1, -4, -11, -15, -10, -51, -50, 15, 5, -5, -55, 1, 10, 11, 51, 55, -40]
@@ -18,13 +18,8 @@ uploaded_file = st.sidebar.file_uploader("Data File Upload", type=['csv', 'xlsx'
 
 if uploaded_file:
     try:
-        # File type handling
-        if uploaded_file.name.endswith('.csv'):
-            df = pd.read_csv(uploaded_file)
-        else:
-            df = pd.read_excel(uploaded_file)
-        
-        # Clean column names
+        # File handling
+        df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
         df.columns = [str(c).strip().upper() for c in df.columns]
         
         # Date processing
@@ -35,11 +30,10 @@ if uploaded_file:
             base_idx = df[df['DATE'] == selected_date].index[0]
             tomorrow = selected_date + timedelta(days=1)
         else:
-            st.warning("फाइल में 'DATE' कॉलम नहीं मिला।")
             base_idx = len(df) - 1
             tomorrow = "Next Day"
 
-        # Ensure shift columns are numeric
+        # Numeric check
         for s in shifts:
             if s in df.columns:
                 df[s] = pd.to_numeric(df[s], errors='coerce')
@@ -59,18 +53,23 @@ if uploaded_file:
         
         with col1:
             st.header("✅ Top Winners")
-            winners = [{"Number": n, "Total Score": scores[n]} for n in range(100) if scores[n] >= 3]
+            # Logic: Convert Score to Confidence % (Max Score is usually around 10-12)
+            winners = []
+            for n in range(100):
+                if scores[n] >= 3:
+                    conf = min(98, (scores[n] / 8) * 100) # 8 hits = 100% (Approx)
+                    winners.append({"Number": n, "Score": int(scores[n]), "Confidence %": f"{conf:.1f}%"})
+            
             if winners:
-                winners_df = pd.DataFrame(winners).sort_values(by="Total Score", ascending=False)
-                st.table(winners_df.head(10))
+                winners_df = pd.DataFrame(winners).sort_values(by="Score", ascending=False)
+                st.table(winners_df.head(12))
             else:
                 st.write("अभी कोई मजबूत नंबर (3+ Hits) नहीं मिला।")
 
         with col2:
             st.header("❌ 60-70 Losers (Not Coming)")
-            # Those with 0 or 1 hits are high risk losers
             losers = [n for n in range(100) if scores[n] <= 1]
-            st.error(f"इन {len(losers)} नंबरों के आने की संभावना बहुत कम है:")
+            st.error(f"इन {len(losers)} नंबरों के आने का चांस 1% से कम है:")
             st.write(sorted(losers))
 
         # --- SHIFT-WISE ANALYSIS ---
@@ -84,8 +83,12 @@ if uploaded_file:
                     s_val = today_nums.get(s_name)
                     if s_val is not None:
                         st.subheader(f"{s_name} (Today: {int(s_val)})")
-                        s_preds = [{"Number": int((s_val + p)%100), "Score": scores[int((s_val + p)%100)]} for p in master_patterns]
-                        s_df = pd.DataFrame(s_preds).sort_values("Score", ascending=False).drop_duplicates('Number')
+                        s_preds = []
+                        for p in master_patterns:
+                            num = int((s_val + p)%100)
+                            s_preds.append({"Number": num, "Confidence %": f"{min(98, (scores[num]/8)*100):.1f}%"})
+                        
+                        s_df = pd.DataFrame(s_preds).sort_values("Confidence %", ascending=False).drop_duplicates('Number')
                         st.table(s_df.head(5))
 
     except Exception as e:
