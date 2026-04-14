@@ -126,4 +126,4 @@ if uploaded_file:
 
 else:
     st.info("Sidebar में अपनी Excel/CSV फाइल अपलोड करें। यह सिस्टम आपके पुराने डेटा को खुद ही समझ लेगा।")
-  
+        
